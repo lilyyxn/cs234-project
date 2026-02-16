@@ -1,0 +1,317 @@
+Episode 1
+_is_at_terminal_state False
+reward 1
+total rewards 1
+Episode 2
+_is_at_terminal_state False
+reward 1
+total rewards 2
+Episode 3
+_is_at_terminal_state False
+reward 1
+total rewards 3
+Episode 4
+_is_at_terminal_state False
+reward 1
+total rewards 4
+Episode 5
+_is_at_terminal_state False
+reward 1
+total rewards 5
+Episode 6
+_is_at_terminal_state False
+reward 1
+total rewards 6
+Episode 7
+_is_at_terminal_state False
+reward 1
+total rewards 7
+Episode 8
+_is_at_terminal_state False
+reward 1
+total rewards 8
+Episode 9
+_is_at_terminal_state False
+reward 1
+total rewards 9
+Episode 10
+_is_at_terminal_state False
+reward 1
+total rewards 10
+Episode 11
+_is_at_terminal_state False
+reward 1
+total rewards 11
+Episode 12
+_is_at_terminal_state False
+reward 1
+total rewards 12
+Episode 13
+_is_at_terminal_state False
+reward 1
+total rewards 13
+Episode 14
+_is_at_terminal_state False
+reward 1
+total rewards 14
+Episode 15
+_is_at_terminal_state False
+reward 1
+total rewards 15
+Episode 16
+_is_at_terminal_state False
+reward 1
+total rewards 16
+Episode 17
+_is_at_terminal_state False
+reward 1
+total rewards 17
+Episode 18
+_is_at_terminal_state False
+reward 1
+total rewards 18
+Episode 19
+_is_at_terminal_state False
+reward 1
+total rewards 19
+Episode 20
+_is_at_terminal_state False
+reward 1
+total rewards 20
+Episode 21
+_is_at_terminal_state False
+reward 1
+total rewards 21
+Episode 22
+_is_at_terminal_state False
+reward 1
+total rewards 22
+Episode 23
+_is_at_terminal_state False
+reward 1
+total rewards 23
+Episode 24
+_is_at_terminal_state False
+reward 1
+total rewards 24
+Episode 25
+_is_at_terminal_state False
+reward 1
+total rewards 25
+Episode 26
+_is_at_terminal_state False
+reward 1
+total rewards 26
+Episode 27
+_is_at_terminal_state False
+reward 1
+total rewards 27
+Episode 28
+_is_at_terminal_state False
+reward 1
+total rewards 28
+Episode 29
+_is_at_terminal_state False
+reward 1
+total rewards 29
+Episode 30
+_is_at_terminal_state False
+reward 1
+total rewards 30
+Episode 31
+_is_at_terminal_state False
+reward 1
+total rewards 31
+Episode 32
+_is_at_terminal_state False
+reward 1
+total rewards 32
+Episode 33
+_is_at_terminal_state False
+reward 1
+total rewards 33
+Episode 34
+_is_at_terminal_state False
+reward 1
+total rewards 34
+Episode 35
+_is_at_terminal_state False
+reward 1
+total rewards 35
+Episode 36
+_is_at_terminal_state False
+reward 1
+total rewards 36
+Episode 37
+_is_at_terminal_state False
+reward 1
+total rewards 37
+Episode 38
+_is_at_terminal_state False
+reward 1
+total rewards 38
+Episode 39
+_is_at_terminal_state False
+reward 1
+total rewards 39
+Episode 40
+_is_at_terminal_state False
+reward 1
+total rewards 40
+Episode 41
+_is_at_terminal_state False
+reward 1
+total rewards 41
+Episode 42
+_is_at_terminal_state False
+reward 1
+total rewards 42
+Episode 43
+_is_at_terminal_state False
+reward 1
+total rewards 43
+Episode 44
+_is_at_terminal_state False
+reward 1
+total rewards 44
+Episode 45
+_is_at_terminal_state False
+reward 1
+total rewards 45
+Episode 46
+_is_at_terminal_state False
+reward 1
+total rewards 46
+Episode 47
+_is_at_terminal_state False
+reward 1
+total rewards 47
+Episode 48
+_is_at_terminal_state False
+reward 1
+total rewards 48
+Episode 49
+_is_at_terminal_state False
+reward 1
+total rewards 49
+Episode 50
+_is_at_terminal_state False
+reward 1
+total rewards 50
+Episode 51
+_is_at_terminal_state False
+reward 1
+total rewards 51
+Episode 52
+_is_at_terminal_state False
+reward 1
+total rewards 52
+Episode 53
+_is_at_terminal_state False
+reward 1
+total rewards 53
+Episode 54
+_is_at_terminal_state False
+reward 1
+total rewards 54
+Episode 55
+_is_at_terminal_state False
+reward 1
+total rewards 55
+Episode 56
+_is_at_terminal_state False
+reward 1
+total rewards 56
+Episode 57
+_is_at_terminal_state False
+reward 1
+total rewards 57
+Episode 58
+_is_at_terminal_state False
+reward 1
+total rewards 58
+Episode 59
+_is_at_terminal_state True
+reward 100
+total rewards 158
+Episode 60
+_is_at_terminal_state False
+reward -1
+total rewards 157
+Episode 61
+_is_at_terminal_state False
+reward -1
+total rewards 156
+Episode 62
+_is_at_terminal_state False
+reward -1
+total rewards 155
+Episode 63
+_is_at_terminal_state False
+reward -1
+total rewards 154
+Episode 64
+_is_at_terminal_state False
+reward -1
+total rewards 153
+Episode 65
+_is_at_terminal_state False
+reward -1
+total rewards 152
+Episode 66
+_is_at_terminal_state False
+reward -1
+total rewards 151
+Episode 67
+_is_at_terminal_state False
+reward -1
+total rewards 150
+Episode 68
+_is_at_terminal_state False
+reward -1
+total rewards 149
+Episode 69
+_is_at_terminal_state False
+reward -1
+total rewards 148
+Episode 70
+_is_at_terminal_state False
+reward -1
+total rewards 147
+Episode 71
+_is_at_terminal_state False
+reward -1
+total rewards 146
+Episode 72
+_is_at_terminal_state False
+reward -1
+total rewards 145
+Episode 73
+_is_at_terminal_state False
+reward -1
+total rewards 144
+Episode 74
+_is_at_terminal_state False
+reward -1
+total rewards 143
+Episode 75
+_is_at_terminal_state False
+reward -1
+total rewards 142
+Episode 76
+_is_at_terminal_state False
+reward -1
+total rewards 141
+Episode 77
+_is_at_terminal_state False
+reward -1
+total rewards 140
+Episode 78
+_is_at_terminal_state False
+reward -1
+total rewards 139
+Episode 79
+_is_at_terminal_state True
+reward 100
+total rewards 239
+Episode finished! Total reward: 239

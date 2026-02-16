@@ -58,6 +58,24 @@ class GridWorldEnv(gym.Env):
         self.window = None
         self.clock = None
 
+        self.reward_function = self.reward_func_0
+    
+    def reward_func_0(self):
+        if self._is_at_terminal_state():
+            return 100
+        else:
+            return 1
+    
+    def reward_func_1(self):
+        if self._is_at_terminal_state():
+            return 100
+        else:
+            return -1
+    
+    def _is_at_terminal_state(self):
+        return np.array_equal(self._agent_location, self._target_location)
+
+
     def _get_obs(self):
         return {"agent": self._agent_location, "target": self._target_location}
 
@@ -68,7 +86,7 @@ class GridWorldEnv(gym.Env):
             )
         }
 
-    def reset(self, seed=None, options=None):
+    def reset(self, seed=None, options=None, reward_func=None):
         # We need the following line to seed self.np_random
         super().reset(seed=seed)
 
@@ -88,6 +106,11 @@ class GridWorldEnv(gym.Env):
 
         if self.render_mode == "human":
             self._render_frame()
+        
+        if reward_func:
+            self.reward_function = reward_func
+        else:
+            self.reward_function = self.reward_func_0
 
         return observation, info
 
@@ -99,15 +122,24 @@ class GridWorldEnv(gym.Env):
             self._agent_location + direction, 0, self.size - 1
         )
         # An episode is done iff the agent has reached the target
-        terminated = np.array_equal(self._agent_location, self._target_location)
-        reward = 1 if terminated else 0  # Binary sparse rewards
+        print("_is_at_terminal_state", self._is_at_terminal_state())
+        terminated = False  # or self._is_at_terminal_state()
+        truncated = False  # the wrapper sets time limit via max_episode_steps
+        reward = self.reward_function()
+        print("reward", reward)
         observation = self._get_obs()
         info = self._get_info()
 
         if self.render_mode == "human":
             self._render_frame()
 
-        return observation, reward, terminated, False, info
+        if self._is_at_terminal_state():
+            if self.reward_function == self.reward_func_0:
+                self.reset(reward_func=self.reward_func_1)
+            else:
+                terminated = True
+
+        return observation, reward, terminated, truncated, info
 
     def render(self):
         if self.render_mode == "rgb_array":
