@@ -5,10 +5,6 @@ __pycache__/
 # Claude Code
 .claude/
 
-# Trained models
-models/
-*.zip
-
 # Training logs and videos
 logs/
 videos/
