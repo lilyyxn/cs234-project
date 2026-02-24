@@ -1,1 +1,14 @@
 __pycache__/
+*.egg-info/
+.DS_Store
+
+# Claude Code
+.claude/
+
+# Trained models
+models/
+*.zip
+
+# Training logs and videos
+logs/
+videos/

@@ -16,9 +16,16 @@ class Actions(Enum):
 class GridWorldEnv(gym.Env):
     metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 4}
 
-    def __init__(self, render_mode=None, size=5):
+    def __init__(self, render_mode=None, size=5,
+                 reward_0_step=1, reward_0_terminal=100,
+                 reward_1_step=-1, reward_1_terminal=100):
         self.size = size  # The size of the square grid
         self.window_size = 512  # The size of the PyGame window
+
+        self.reward_0_step = reward_0_step
+        self.reward_0_terminal = reward_0_terminal
+        self.reward_1_step = reward_1_step
+        self.reward_1_terminal = reward_1_terminal
 
         # Observations are dictionaries with the agent's and the target's location.
         # Each location is encoded as an element of {0, ..., `size`}^2,
@@ -62,18 +69,28 @@ class GridWorldEnv(gym.Env):
     
     def reward_func_0(self):
         if self._is_at_terminal_state():
-            return 100
+            return self.reward_0_terminal
         else:
-            return 1
-    
+            return self.reward_0_step
+
     def reward_func_1(self):
         if self._is_at_terminal_state():
-            return 100
+            return self.reward_1_terminal
         else:
-            return -1
+            return self.reward_1_step
     
     def _is_at_terminal_state(self):
         return np.array_equal(self._agent_location, self._target_location)
+
+    def action_masks(self):
+        """Return valid actions based on agent position (no wall bumping)."""
+        x, y = self._agent_location
+        return np.array([
+            x < self.size - 1,  # right
+            y < self.size - 1,  # up
+            x > 0,              # left
+            y > 0,              # down
+        ], dtype=np.int8)
 
 
     def _get_obs(self):
@@ -122,11 +139,9 @@ class GridWorldEnv(gym.Env):
             self._agent_location + direction, 0, self.size - 1
         )
         # An episode is done iff the agent has reached the target
-        print("_is_at_terminal_state", self._is_at_terminal_state())
         terminated = False  # or self._is_at_terminal_state()
         truncated = False  # the wrapper sets time limit via max_episode_steps
         reward = self.reward_function()
-        print("reward", reward)
         observation = self._get_obs()
         info = self._get_info()
 
