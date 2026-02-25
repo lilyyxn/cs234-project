@@ -56,7 +56,7 @@ Models are auto-saved to `models/` with a name encoding the config (e.g. `r0s1_r
 
 ### Example configurations
 
-Default (agent reaches target twice):
+Default (agent reaches target):
 ```shell
 python grid_world_env/train_ppo.py
 ```
