@@ -18,7 +18,9 @@ class GridWorldEnv(gym.Env):
 
     def __init__(self, render_mode=None, size=5,
                  reward_0_step=1, reward_0_terminal=100,
-                 reward_1_step=-1, reward_1_terminal=100):
+                 reward_1_step=-1, reward_1_terminal=100,
+                 reward_mode="default",
+                 loop_detection=False, loop_window=10, loop_grace_period=5):
         self.size = size  # The size of the square grid
         self.window_size = 512  # The size of the PyGame window
 
@@ -26,6 +28,10 @@ class GridWorldEnv(gym.Env):
         self.reward_0_terminal = reward_0_terminal
         self.reward_1_step = reward_1_step
         self.reward_1_terminal = reward_1_terminal
+        self.loop_detection = loop_detection
+        self.loop_window = loop_window
+        self.loop_grace_period = loop_grace_period  # how many loop detections to tolerate before switching reward
+        self._position_history = []
 
         # Observations are dictionaries with the agent's and the target's location.
         # Each location is encoded as an element of {0, ..., `size`}^2,
@@ -65,8 +71,9 @@ class GridWorldEnv(gym.Env):
         self.window = None
         self.clock = None
 
+        self.reward_mode = reward_mode
         self.reward_function = self.reward_func_0
-    
+
     def reward_func_0(self):
         if self._is_at_terminal_state():
             return self.reward_0_terminal
@@ -78,7 +85,25 @@ class GridWorldEnv(gym.Env):
             return self.reward_1_terminal
         else:
             return self.reward_1_step
-    
+
+    def reward_func_relative_position(self):
+        """Calculate reward based on relative position to the target."""
+        distance = np.linalg.norm(self._agent_location - self._target_location, ord=1)
+        return -distance  # Negative reward proportional to Manhattan distance
+
+    def _detect_loop(self):
+        """Detect if the agent is cycling through a repeating sequence of states.
+        Returns (is_loop, cycle_count) where cycle_count is the number of full
+        repetitions of the detected cycle period within the history window.
+        e.g. ababababab → period=2, cycle_count=5; abcbabcba → period=4, cycle_count=2.
+        """
+        h = self._position_history
+        n = len(h)
+        for period in range(2, n // 2 + 1):
+            if h[-period:] == h[-2 * period:-period]:
+                return True, n // period
+        return False, 0
+
     def _is_at_terminal_state(self):
         return np.array_equal(self._agent_location, self._target_location)
 
@@ -124,8 +149,12 @@ class GridWorldEnv(gym.Env):
         if self.render_mode == "human":
             self._render_frame()
         
+        self._position_history = []
+
         if reward_func:
             self.reward_function = reward_func
+        elif self.reward_mode == "relative":
+            self.reward_function = self.reward_func_relative_position
         else:
             self.reward_function = self.reward_func_0
 
@@ -141,6 +170,13 @@ class GridWorldEnv(gym.Env):
         # An episode is done iff the agent has reached the target
         terminated = False  # or self._is_at_terminal_state()
         truncated = False  # the wrapper sets time limit via max_episode_steps
+
+        # Track position history for loop detection
+        if self.loop_detection:
+            self._position_history.append(tuple(self._agent_location))
+            if len(self._position_history) > self.loop_window:
+                self._position_history.pop(0)
+
         reward = self.reward_function()
         observation = self._get_obs()
         info = self._get_info()
@@ -153,6 +189,16 @@ class GridWorldEnv(gym.Env):
                 self.reset(reward_func=self.reward_func_1)
             else:
                 terminated = True
+        elif self.loop_detection:
+            loop_found, cycle_count = self._detect_loop()
+            if loop_found:
+                info["loop_detected"] = True
+                info["loop_count"] = cycle_count
+                if cycle_count > self.loop_grace_period:
+                    if self.reward_function == self.reward_func_0:
+                        self.reset(reward_func=self.reward_func_1)
+                    else:
+                        terminated = True
 
         return observation, reward, terminated, truncated, info
 

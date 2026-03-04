@@ -62,6 +62,11 @@ def main():
     parser.add_argument("--reward-1-step", type=float, default=None, help="Per-step reward for func_1")
     parser.add_argument("--reward-1-terminal", type=float, default=None, help="Terminal reward for func_1")
     parser.add_argument("--mask-actions", action="store_true", default=None, help="Enable action masking (auto-detected from model name)")
+    parser.add_argument("--relative-reward", action="store_true", help="Use relative position as reward")
+    parser.add_argument("--loop-detection", action="store_true", help="Switch reward function when looping behavior is detected")
+    parser.add_argument("--loop-window", type=int, default=10, help="Number of recent steps to check for looping (default: 10)")
+    parser.add_argument("--loop-grace-period", type=int, default=5, help="Number of loop detections to tolerate before switching reward function (default: 5)")
+
     args = parser.parse_args()
 
     if args.list:
@@ -92,6 +97,7 @@ def main():
     mask_actions = args.mask_actions if args.mask_actions is not None else parsed.get("mask_actions", False)
 
     render_mode = "rgb_array" if args.record else "human"
+    reward_mode = "relative" if args.relative_reward else "default"
     env = gymnasium.make(
         "grid_world_env/GridWorld-v0",
         max_episode_steps=100,
@@ -100,7 +106,12 @@ def main():
         reward_0_terminal=reward_0_terminal,
         reward_1_step=reward_1_step,
         reward_1_terminal=reward_1_terminal,
+        reward_mode=reward_mode,
+        loop_detection=args.loop_detection,
+        loop_window=args.loop_window,
+        loop_grace_period=args.loop_grace_period,
     )
+    print(f"Using reward mode: {reward_mode}, loop detection: {args.loop_detection} (window={args.loop_window}, grace={args.loop_grace_period})")
     if mask_actions:
         env = ActionMasker(env, lambda e: e.get_wrapper_attr("action_masks")())
     env = RelativePosition(env)
@@ -127,6 +138,7 @@ def main():
                 action, _ = model.predict(obs, deterministic=True)
             obs, reward, terminated, truncated, info = env.step(int(action))
             total_reward += reward
+            print(total_reward)
             done = terminated or truncated
 
         print(f"Episode {ep + 1}: total reward = {total_reward:.1f}")

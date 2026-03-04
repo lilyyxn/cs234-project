@@ -32,6 +32,12 @@ The agent takes random action at each state.
 python grid_world_env/run_env.py
 ```
 
+Optional flags:
+- `--relative-reward` — use negative Manhattan distance to target as reward instead of fixed +1/-1
+- `--loop-detection` — switch reward function when looping behavior is detected
+- `--loop-window 10` — number of recent steps to scan for a repeating cycle (default: 10)
+- `--loop-grace-period 5` — number of full cycle repetitions to tolerate before switching reward (default: 5)
+
 ## Train PPO
 
 ```shell
@@ -51,6 +57,10 @@ Optional flags:
 - `--reward-1-step -1` — per-step reward under func_1 (default: -1)
 - `--reward-1-terminal 100` — terminal reward under func_1 (default: 100)
 - `--mask-actions` — only allow valid moves (no wall bumping). Uses MaskablePPO from sb3-contrib.
+- `--relative-reward` — use negative Manhattan distance to target as reward instead of fixed +1/-1 per step
+- `--loop-detection` — switch reward function when a looping cycle is detected in the agent's trajectory
+- `--loop-window 10` — number of recent steps to scan for a repeating cycle (default: 10)
+- `--loop-grace-period 5` — number of full cycle repetitions to tolerate before switching reward (default: 5)
 
 Models are auto-saved to `models/` with a name encoding the config (e.g. `r0s1_r0t10_r1s-1_r1t10_masked`).
 
@@ -69,6 +79,16 @@ python grid_world_env/train_ppo.py --reward-0-terminal 10 --reward-1-terminal 10
 Same but with action masking (agent must move, can't wall-bump):
 ```shell
 python grid_world_env/train_ppo.py --reward-0-terminal 10 --reward-1-terminal 10 --mask-actions
+```
+
+Relative position reward (reward = −Manhattan distance to target):
+```shell
+python grid_world_env/train_ppo.py --relative-reward
+```
+
+Switch reward function after the agent loops more than 3 times:
+```shell
+python grid_world_env/train_ppo.py --loop-detection --loop-grace-period 3
 ```
 
 ### View training curves
@@ -97,5 +117,9 @@ Optional flags:
 - `--video-dir videos` — directory for recorded videos
 - `--reward-0-step`, `--reward-0-terminal`, `--reward-1-step`, `--reward-1-terminal` — override reward config (auto-detected from model name)
 - `--mask-actions` — enable action masking (auto-detected from model name)
+- `--relative-reward` — use negative Manhattan distance to target as reward instead of fixed +1/-1
+- `--loop-detection` — switch reward function when a looping cycle is detected
+- `--loop-window 10` — number of recent steps to scan for a repeating cycle (default: 10)
+- `--loop-grace-period 5` — number of full cycle repetitions to tolerate before switching reward (default: 5)
 
 Run with no arguments to list saved models and select one by number.

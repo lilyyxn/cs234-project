@@ -11,7 +11,9 @@ from grid_world_env.wrappers import RelativePosition
 
 
 def make_env(render_mode=None, reward_0_step=1, reward_0_terminal=100,
-             reward_1_step=-1, reward_1_terminal=100, mask_actions=False):
+             reward_1_step=-1, reward_1_terminal=100, mask_actions=False,
+             reward_mode="default", loop_detection=False, loop_window=10,
+             loop_grace_period=1):
     env = gymnasium.make(
         "grid_world_env/GridWorld-v0",
         max_episode_steps=100,
@@ -20,6 +22,10 @@ def make_env(render_mode=None, reward_0_step=1, reward_0_terminal=100,
         reward_0_terminal=reward_0_terminal,
         reward_1_step=reward_1_step,
         reward_1_terminal=reward_1_terminal,
+        reward_mode=reward_mode,
+        loop_detection=loop_detection,
+        loop_window=loop_window,
+        loop_grace_period=loop_grace_period,
     )
     if mask_actions:
         env = ActionMasker(env, lambda e: e.get_wrapper_attr("action_masks")())
@@ -44,6 +50,10 @@ def main():
     parser.add_argument("--reward-1-step", type=float, default=-1, help="Per-step reward for func_1")
     parser.add_argument("--reward-1-terminal", type=float, default=100, help="Terminal reward for func_1")
     parser.add_argument("--mask-actions", action="store_true", help="Enable action masking (no wall bumping)")
+    parser.add_argument("--relative-reward", action="store_true", help="Use relative position (negative Manhattan distance) as reward instead of +1/-1")
+    parser.add_argument("--loop-detection", action="store_true", help="Switch reward function when looping behavior is detected")
+    parser.add_argument("--loop-window", type=int, default=10, help="Number of recent steps to check for looping (default: 10)")
+    parser.add_argument("--loop-grace-period", type=int, default=5, help="Number of loop detections to tolerate before switching reward function (default: 5)")
     args = parser.parse_args()
 
     # Auto-generate run name from reward config (use ints when possible for clean filenames)
@@ -52,6 +62,10 @@ def main():
     run_name = f"r0s{fmt(args.reward_0_step)}_r0t{fmt(args.reward_0_terminal)}_r1s{fmt(args.reward_1_step)}_r1t{fmt(args.reward_1_terminal)}"
     if args.mask_actions:
         run_name += "_masked"
+    if args.relative_reward:
+        run_name += "_relrew"
+    if args.loop_detection:
+        run_name += f"_loop{args.loop_window}"
     if args.save_path is None:
         args.save_path = f"models/{run_name}"
     if args.log_dir is None:
@@ -59,12 +73,18 @@ def main():
 
     os.makedirs(os.path.dirname(args.save_path), exist_ok=True)
 
+    reward_mode = "relative" if args.relative_reward else "default"
+    print(f"Using reward mode: {reward_mode}")
     env_kwargs = dict(
         reward_0_step=args.reward_0_step,
         reward_0_terminal=args.reward_0_terminal,
         reward_1_step=args.reward_1_step,
         reward_1_terminal=args.reward_1_terminal,
         mask_actions=args.mask_actions,
+        reward_mode=reward_mode,
+        loop_detection=args.loop_detection,
+        loop_window=args.loop_window,
+        loop_grace_period=args.loop_grace_period,
     )
     vec_env = make_vec_env(make_env, n_envs=args.n_envs, seed=args.seed, env_kwargs=env_kwargs)
 
