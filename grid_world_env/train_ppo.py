@@ -3,6 +3,7 @@ import os
 import gymnasium
 from stable_baselines3 import PPO
 from stable_baselines3.common.env_util import make_vec_env
+from stable_baselines3.common.vec_env import VecNormalize
 from sb3_contrib import MaskablePPO
 from sb3_contrib.common.wrappers import ActionMasker
 
@@ -13,10 +14,10 @@ from grid_world_env.wrappers import RelativePosition
 def make_env(render_mode=None, reward_0_step=1, reward_0_terminal=100,
              reward_1_step=-1, reward_1_terminal=100, mask_actions=False,
              reward_mode="default", loop_detection=False, loop_window=10,
-             loop_grace_period=1):
+             loop_grace_period=1, max_episode_steps=100):
     env = gymnasium.make(
         "grid_world_env/GridWorld-v0",
-        max_episode_steps=100,
+        max_episode_steps=max_episode_steps,
         render_mode=render_mode,
         reward_0_step=reward_0_step,
         reward_0_terminal=reward_0_terminal,
@@ -26,6 +27,7 @@ def make_env(render_mode=None, reward_0_step=1, reward_0_terminal=100,
         loop_detection=loop_detection,
         loop_window=loop_window,
         loop_grace_period=loop_grace_period,
+        max_steps=max_episode_steps,
     )
     if mask_actions:
         env = ActionMasker(env, lambda e: e.get_wrapper_attr("action_masks")())
@@ -40,7 +42,7 @@ def main():
     parser.add_argument("--n-steps", type=int, default=2048, help="Steps per rollout")
     parser.add_argument("--batch-size", type=int, default=64, help="Minibatch size")
     parser.add_argument("--n-epochs", type=int, default=10, help="PPO epochs per update")
-    parser.add_argument("--gamma", type=float, default=0.99, help="Discount factor")
+    parser.add_argument("--gamma", type=float, default=1.0, help="Discount factor (default: 1.0 for finite horizon)")
     parser.add_argument("--seed", type=int, default=0, help="Random seed")
     parser.add_argument("--save-path", type=str, default=None, help="Path to save model (auto-generated if not set)")
     parser.add_argument("--n-envs", type=int, default=4, help="Number of parallel environments")
@@ -54,18 +56,33 @@ def main():
     parser.add_argument("--loop-detection", action="store_true", help="Switch reward function when looping behavior is detected")
     parser.add_argument("--loop-window", type=int, default=10, help="Number of recent steps to check for looping (default: 10)")
     parser.add_argument("--loop-grace-period", type=int, default=5, help="Number of loop detections to tolerate before switching reward function (default: 5)")
+    parser.add_argument("--ent-coef", type=float, default=0.0, help="Entropy coefficient for exploration (default: 0.0, try 0.01-0.05)")
+    parser.add_argument("--clip-range", type=float, default=0.2, help="PPO clip range (default: 0.2, try 0.3-0.5)")
+    parser.add_argument("--gae-lambda", type=float, default=1.0, help="GAE lambda (default: 1.0 for finite horizon)")
+    parser.add_argument("--max-steps", type=int, default=100, help="Max episode steps (default: 100)")
+    parser.add_argument("--norm-reward", action="store_true", help="Normalize rewards using VecNormalize")
     args = parser.parse_args()
 
     # Auto-generate run name from reward config (use ints when possible for clean filenames)
     def fmt(v):
         return str(int(v)) if v == int(v) else str(v)
     run_name = f"r0s{fmt(args.reward_0_step)}_r0t{fmt(args.reward_0_terminal)}_r1s{fmt(args.reward_1_step)}_r1t{fmt(args.reward_1_terminal)}"
+    if args.gamma != 1.0:
+        run_name += f"_g{fmt(args.gamma)}"
+    if args.max_steps != 100:
+        run_name += f"_steps{args.max_steps}"
     if args.mask_actions:
         run_name += "_masked"
     if args.relative_reward:
         run_name += "_relrew"
     if args.loop_detection:
         run_name += f"_loop{args.loop_window}"
+    if args.ent_coef > 0:
+        run_name += f"_ent{fmt(args.ent_coef)}"
+    if args.clip_range != 0.2:
+        run_name += f"_clip{fmt(args.clip_range)}"
+    if args.norm_reward:
+        run_name += "_normed"
     if args.save_path is None:
         args.save_path = f"models/{run_name}"
     if args.log_dir is None:
@@ -85,8 +102,12 @@ def main():
         loop_detection=args.loop_detection,
         loop_window=args.loop_window,
         loop_grace_period=args.loop_grace_period,
+        max_episode_steps=args.max_steps,
     )
     vec_env = make_vec_env(make_env, n_envs=args.n_envs, seed=args.seed, env_kwargs=env_kwargs)
+
+    if args.norm_reward:
+        vec_env = VecNormalize(vec_env, norm_obs=True, norm_reward=True)
 
     if args.mask_actions:
         model = MaskablePPO(
@@ -97,6 +118,9 @@ def main():
             batch_size=args.batch_size,
             n_epochs=args.n_epochs,
             gamma=args.gamma,
+            gae_lambda=args.gae_lambda,
+            ent_coef=args.ent_coef,
+            clip_range=args.clip_range,
             verbose=1,
             seed=args.seed,
             tensorboard_log=args.log_dir,
@@ -110,6 +134,9 @@ def main():
             batch_size=args.batch_size,
             n_epochs=args.n_epochs,
             gamma=args.gamma,
+            gae_lambda=args.gae_lambda,
+            ent_coef=args.ent_coef,
+            clip_range=args.clip_range,
             verbose=1,
             seed=args.seed,
             tensorboard_log=args.log_dir,

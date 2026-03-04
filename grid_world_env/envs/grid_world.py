@@ -20,7 +20,8 @@ class GridWorldEnv(gym.Env):
                  reward_0_step=1, reward_0_terminal=100,
                  reward_1_step=-1, reward_1_terminal=100,
                  reward_mode="default",
-                 loop_detection=False, loop_window=10, loop_grace_period=5):
+                 loop_detection=False, loop_window=10, loop_grace_period=5,
+                 max_steps=100):
         self.size = size  # The size of the square grid
         self.window_size = 512  # The size of the PyGame window
 
@@ -32,6 +33,8 @@ class GridWorldEnv(gym.Env):
         self.loop_window = loop_window
         self.loop_grace_period = loop_grace_period  # how many loop detections to tolerate before switching reward
         self._position_history = []
+        self.max_steps = max_steps
+        self._current_step = 0
 
         # Observations are dictionaries with the agent's and the target's location.
         # Each location is encoded as an element of {0, ..., `size`}^2,
@@ -40,6 +43,8 @@ class GridWorldEnv(gym.Env):
             {
                 "agent": spaces.Box(0, size - 1, shape=(2,), dtype=int),
                 "target": spaces.Box(0, size - 1, shape=(2,), dtype=int),
+                "phase": spaces.Discrete(2),
+                "timestep": spaces.Box(0, 1, shape=(1,), dtype=np.float64),
             }
         )
 
@@ -47,7 +52,7 @@ class GridWorldEnv(gym.Env):
         self.action_space = spaces.Discrete(4)
 
         """
-        The following dictionary maps abstract actions from `self.action_space` to 
+        The following dictionary maps abstract actions from `self.action_space` to
         the direction we will walk in if that action is taken.
         i.e. 0 corresponds to "right", 1 to "up" etc.
         """
@@ -73,6 +78,7 @@ class GridWorldEnv(gym.Env):
 
         self.reward_mode = reward_mode
         self.reward_function = self.reward_func_0
+        self.reward_phase = 0
 
     def reward_func_0(self):
         if self._is_at_terminal_state():
@@ -119,7 +125,12 @@ class GridWorldEnv(gym.Env):
 
 
     def _get_obs(self):
-        return {"agent": self._agent_location, "target": self._target_location}
+        return {
+            "agent": self._agent_location,
+            "target": self._target_location,
+            "phase": self.reward_phase,
+            "timestep": np.array([self._current_step / self.max_steps], dtype=np.float64),
+        }
 
     def _get_info(self):
         return {
@@ -148,19 +159,23 @@ class GridWorldEnv(gym.Env):
 
         if self.render_mode == "human":
             self._render_frame()
-        
+
         self._position_history = []
 
         if reward_func:
             self.reward_function = reward_func
+            self.reward_phase = 1
         elif self.reward_mode == "relative":
             self.reward_function = self.reward_func_relative_position
         else:
             self.reward_function = self.reward_func_0
+            self.reward_phase = 0
+            self._current_step = 0
 
         return observation, info
 
     def step(self, action):
+        self._current_step += 1
         # Map the action (element of {0,1,2,3}) to the direction we walk in
         direction = self._action_to_direction[action]
         # We use `np.clip` to make sure we don't leave the grid
@@ -187,6 +202,8 @@ class GridWorldEnv(gym.Env):
         if self._is_at_terminal_state():
             if self.reward_function == self.reward_func_0:
                 self.reset(reward_func=self.reward_func_1)
+                observation = self._get_obs()
+                info = self._get_info()
             else:
                 terminated = True
         elif self.loop_detection:
