@@ -21,7 +21,7 @@ class GridWorldEnv(gym.Env):
                  reward_1_step=-1, reward_1_terminal=100,
                  reward_mode="default",
                  loop_detection=False, loop_window=10, loop_grace_period=5,
-                 max_steps=100):
+                 max_steps=100, single_goal=False):
         self.size = size  # The size of the square grid
         self.window_size = 512  # The size of the PyGame window
 
@@ -34,6 +34,7 @@ class GridWorldEnv(gym.Env):
         self.loop_grace_period = loop_grace_period  # how many loop detections to tolerate before switching reward
         self._position_history = []
         self.max_steps = max_steps
+        self.single_goal = single_goal
         self._current_step = 0
 
         # Observations are dictionaries with the agent's and the target's location.
@@ -200,7 +201,9 @@ class GridWorldEnv(gym.Env):
             self._render_frame()
 
         if self._is_at_terminal_state():
-            if self.reward_function == self.reward_func_0:
+            if self.single_goal:
+                terminated = True
+            elif self.reward_function == self.reward_func_0:
                 self.reset(reward_func=self.reward_func_1)
                 observation = self._get_obs()
                 info = self._get_info()

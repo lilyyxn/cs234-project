@@ -1,0 +1,35 @@
+[
+  {
+    "round": 0,
+    "type": "proxy",
+    "gt_return_mean": -85.71,
+    "gt_return_std": 43.552335184235524
+  },
+  {
+    "round": 1,
+    "type": "rlhf",
+    "gt_return_mean": 91.12,
+    "gt_return_std": 4.552537753824783,
+    "reward_model_final_loss": 0.5273495483398437,
+    "avg_trajectory_length": 96.168,
+    "trajectories_reaching_goal": 42
+  },
+  {
+    "round": 2,
+    "type": "rlhf",
+    "gt_return_mean": 91.36,
+    "gt_return_std": 4.220236960171787,
+    "reward_model_final_loss": 0.10061777925491333,
+    "avg_trajectory_length": 10.058,
+    "trajectories_reaching_goal": 500
+  },
+  {
+    "round": 3,
+    "type": "rlhf",
+    "gt_return_mean": 91.87,
+    "gt_return_std": 3.4515358900060713,
+    "reward_model_final_loss": 0.06058376145362854,
+    "avg_trajectory_length": 10.02,
+    "trajectories_reaching_goal": 500
+  }
+]
