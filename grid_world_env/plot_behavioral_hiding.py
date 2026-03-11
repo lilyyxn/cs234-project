@@ -86,13 +86,14 @@ def plot_metric_by_flag(ax, stages, series0, series1, ylabel, title):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--proxy-timesteps",  type=int, default=300_000)
+    # Defaults match run_behavioral_hiding() in train_behavioral_hiding.py
+    parser.add_argument("--proxy-timesteps",  type=int, default=200_000)
     parser.add_argument("--n-rlhf-rounds",    type=int, default=2)
-    parser.add_argument("--n-trajectories",   type=int, default=150)
-    parser.add_argument("--n-pairs",          type=int, default=300)
-    parser.add_argument("--rm-epochs",        type=int, default=100)
-    parser.add_argument("--rlhf-timesteps",   type=int, default=150_000)
-    parser.add_argument("--eval-episodes",    type=int, default=100)
+    parser.add_argument("--n-trajectories",   type=int, default=100)
+    parser.add_argument("--n-pairs",          type=int, default=200)
+    parser.add_argument("--rm-epochs",        type=int, default=50)
+    parser.add_argument("--rlhf-timesteps",   type=int, default=100_000)
+    parser.add_argument("--eval-episodes",    type=int, default=50)
     parser.add_argument("--seed",             type=int, default=0)
     parser.add_argument("--out-dir",          type=str, default="plots")
     parser.add_argument("--fast", action="store_true",
