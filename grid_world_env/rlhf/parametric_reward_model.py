@@ -33,12 +33,29 @@ class ParametricRewardModel(nn.Module):
         r_1_terminal: reward at phase 1 completion (episode termination)
     """
 
-    def __init__(self):
+    def __init__(self,
+                 r_0_step: float = 0.0,
+                 r_0_terminal: float = 1.0,
+                 r_1_step: float = 0.0,
+                 r_1_terminal: float = 0.0):
+        """Initialize from proxy reward values so the model starts where the
+        proxy left off.  Default values match the original proxy reward config
+        (minus the potential shaping which is env-internal).
+
+        Args:
+            r_0_step:     proxy r_0_step     (default 0)
+            r_0_terminal: proxy r_0_terminal (default 1)
+            r_1_step:     proxy r_1_step     (default 0, not -2; step penalties
+                          from potential shaping are implicit in trajectories)
+            r_1_terminal: proxy r_1_terminal (default 0 — key: no Phase 1
+                          terminal reward in proxy → starts with no prior that
+                          Phase 1 completion is valuable)
+        """
         super().__init__()
-        self.r_0_step     = nn.Parameter(torch.tensor(0.0))
-        self.r_0_terminal = nn.Parameter(torch.tensor(1.0))
-        self.r_1_step     = nn.Parameter(torch.tensor(0.0))
-        self.r_1_terminal = nn.Parameter(torch.tensor(1.0))
+        self.r_0_step     = nn.Parameter(torch.tensor(r_0_step))
+        self.r_0_terminal = nn.Parameter(torch.tensor(r_0_terminal))
+        self.r_1_step     = nn.Parameter(torch.tensor(r_1_step))
+        self.r_1_terminal = nn.Parameter(torch.tensor(r_1_terminal))
 
     def trajectory_return(self, features: torch.Tensor) -> torch.Tensor:
         """Compute return for a batch of trajectory feature vectors.
