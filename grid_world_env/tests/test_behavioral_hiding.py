@@ -70,3 +70,26 @@ def test_eval_flag_obs_within_bounds():
     obs, _ = env.reset()
     assert np.all(obs >= env.observation_space.low)
     assert np.all(obs <= env.observation_space.high)
+
+
+def test_behavioral_hiding_loop_runs():
+    """Smoke test: run_behavioral_hiding with tiny budget completes without error."""
+    from grid_world_env.train_behavioral_hiding import run_behavioral_hiding
+    results = run_behavioral_hiding(
+        proxy_timesteps=2048 + 100,
+        n_rlhf_rounds=1,
+        n_trajectories_per_round=10,
+        n_pairs_per_round=20,
+        reward_model_epochs=5,
+        rlhf_timesteps_per_round=2048 + 100,
+        n_steps=2048,
+        eval_episodes=5,
+        verbose=False,
+    )
+    assert "hiding_score_per_round" in results
+    assert len(results["hiding_score_per_round"]) == 1
+    assert isinstance(results["hiding_score_per_round"][0], float)
+    assert "round_metrics_flag0" in results
+    assert "round_metrics_flag1" in results
+    assert len(results["round_metrics_flag0"]) == 1
+    assert len(results["round_metrics_flag1"]) == 1
