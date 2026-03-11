@@ -1,22 +1,19 @@
-"""Parametric RLHF: 1-round vs 2-round comparison with error bars.
+"""Parametric RLHF: reinitialise vs fine-tune comparison with error bars.
 
-Runs run_parametric_rlhf() with n_rlhf_rounds=2 per seed and extracts both
-after-round-1 and after-round-2 metrics from round_metrics — so the proxy
-policy is only trained once per seed.
+Runs run_parametric_rlhf() twice per seed:
+  - reinitialise: fresh policy each round (current behaviour)
+  - finetune:     carry proxy policy weights into each RLHF round
 
-Key finding:
-  1-round RLHF fails: proxy policy never completes Phase 0, so all preference
-  pairs compare GT=0 vs GT=0, labels are random, and r_1_terminal stays near
-  zero.  The agent trained on the unchanged parameters still avoids Phase 1.
+Key hypothesis (finetune variant): the proxy policy has deeply internalised
+Phase-0-terminal avoidance via potential shaping.  When fine-tuned on the
+parametric-corrected env, this prior persists and the agent fails to complete
+Phase 1, even though the updated reward function rewards Phase 1 completion.
 
-  2-round RLHF succeeds (bootstrapping): Round 1 creates a weak positive
-  signal for Phase 1 entry, causing the policy to complete Phase 0 in Round 2.
-  Round 2 then has real Phase 1 completion data and learns r_1_terminal >> 0.
-
-Figure saved to plots/parametric_comparison.png (2 panels):
-  Panel 1: GT return — proxy baseline vs after round 1 vs after round 2
-  Panel 2: Learned r_1_terminal — round 1 vs round 2
-           (r_1_terminal ≈ 0 after round 1, large after round 2)
+Figure saved to plots/parametric_comparison.png (4 panels):
+  Panel 1: GT return — proxy / reinit round1 / reinit round2 / finetune round1 / finetune round2
+  Panel 2: GT return after round 2 only — reinit vs finetune (cleaner comparison)
+  Panel 3: Learned r_1_terminal — reinit vs finetune per round
+  Panel 4: Phase-1 completion rate — reinit vs finetune per round
 
 Usage:
   python grid_world_env/plot_parametric_comparison.py
@@ -35,9 +32,9 @@ import torch
 
 from grid_world_env.train_parametric_rlhf import run_parametric_rlhf
 
-PROXY_COLOR  = "#e07b54"   # orange — proxy baseline
-ROUND1_COLOR = "#d94f4f"   # red    — 1-round (fails)
-ROUND2_COLOR = "#5b9bd5"   # blue   — 2-round (succeeds)
+PROXY_COLOR   = "#e07b54"   # orange
+REINIT_COLOR  = "#5b9bd5"   # blue   — reinitialise (works)
+FINETUNE_COLOR = "#d94f4f"  # red    — finetune    (fails)
 
 
 def _bar_err(ax, x, mean, std, color, width=0.5, label=None):
@@ -49,8 +46,8 @@ def _bar_err(ax, x, mean, std, color, width=0.5, label=None):
 
 def run_one_seed(seed, proxy_timesteps, n_trajectories, n_pairs,
                  rm_epochs, rlhf_timesteps, eval_episodes, device):
-    print(f"\n--- Seed {seed} ---")
-    r = run_parametric_rlhf(
+    print(f"\n--- Seed {seed} (reinitialise) ---")
+    reinit = run_parametric_rlhf(
         proxy_timesteps=proxy_timesteps,
         n_rlhf_rounds=2,
         n_trajectories_per_round=n_trajectories,
@@ -61,22 +58,40 @@ def run_one_seed(seed, proxy_timesteps, n_trajectories, n_pairs,
         seed=seed,
         device=device,
         verbose=False,
+        finetune=False,
     )
-    p1 = r["learned_params_per_round"][0]
-    p2 = r["learned_params_per_round"][1]
-    print(f"  Proxy  GT: {r['proxy_policy_gt_return']:.3f}")
-    print(f"  Round1 GT: {r['round_metrics'][0]['mean_gt_return']:.3f}  "
-          f"r_1_terminal={p1['r_1_terminal']:.3f}")
-    print(f"  Round2 GT: {r['round_metrics'][1]['mean_gt_return']:.3f}  "
-          f"r_1_terminal={p2['r_1_terminal']:.3f}")
+    print(f"  [reinit]  round1 GT={reinit['round_metrics'][0]['mean_gt_return']:.3f}  "
+          f"round2 GT={reinit['round_metrics'][1]['mean_gt_return']:.3f}")
+
+    print(f"\n--- Seed {seed} (finetune) ---")
+    ft = run_parametric_rlhf(
+        proxy_timesteps=proxy_timesteps,
+        n_rlhf_rounds=2,
+        n_trajectories_per_round=n_trajectories,
+        n_pairs_per_round=n_pairs,
+        reward_model_epochs=rm_epochs,
+        rlhf_timesteps_per_round=rlhf_timesteps,
+        eval_episodes=eval_episodes,
+        seed=seed,
+        device=device,
+        verbose=False,
+        finetune=True,
+    )
+    print(f"  [finetune] round1 GT={ft['round_metrics'][0]['mean_gt_return']:.3f}  "
+          f"round2 GT={ft['round_metrics'][1]['mean_gt_return']:.3f}")
+
     return {
-        "proxy_gt":        r["proxy_policy_gt_return"],
-        "round1_gt":       r["round_metrics"][0]["mean_gt_return"],
-        "round2_gt":       r["round_metrics"][1]["mean_gt_return"],
-        "round1_r1t":      p1["r_1_terminal"],
-        "round2_r1t":      p2["r_1_terminal"],
-        "round1_r1s":      p1["r_1_step"],
-        "round2_r1s":      p2["r_1_step"],
+        "proxy_gt":         reinit["proxy_policy_gt_return"],
+        "reinit_r1_gt":     reinit["round_metrics"][0]["mean_gt_return"],
+        "reinit_r2_gt":     reinit["round_metrics"][1]["mean_gt_return"],
+        "reinit_r1_r1t":    reinit["learned_params_per_round"][0]["r_1_terminal"],
+        "reinit_r2_r1t":    reinit["learned_params_per_round"][1]["r_1_terminal"],
+        "reinit_r2_both":   reinit["round_metrics"][1]["pct_both_complete"],
+        "ft_r1_gt":         ft["round_metrics"][0]["mean_gt_return"],
+        "ft_r2_gt":         ft["round_metrics"][1]["mean_gt_return"],
+        "ft_r1_r1t":        ft["learned_params_per_round"][0]["r_1_terminal"],
+        "ft_r2_r1t":        ft["learned_params_per_round"][1]["r_1_terminal"],
+        "ft_r2_both":       ft["round_metrics"][1]["pct_both_complete"],
     }
 
 
@@ -84,63 +99,93 @@ def make_figure(all_results, out_path):
     def arr(key):
         return np.array([r[key] for r in all_results])
 
-    proxy_gt  = arr("proxy_gt")
-    round1_gt = arr("round1_gt")
-    round2_gt = arr("round2_gt")
-    round1_r1t = arr("round1_r1t")
-    round2_r1t = arr("round2_r1t")
+    proxy_gt      = arr("proxy_gt")
+    reinit_r1_gt  = arr("reinit_r1_gt");  reinit_r2_gt  = arr("reinit_r2_gt")
+    ft_r1_gt      = arr("ft_r1_gt");      ft_r2_gt      = arr("ft_r2_gt")
+    reinit_r1_r1t = arr("reinit_r1_r1t"); reinit_r2_r1t = arr("reinit_r2_r1t")
+    ft_r1_r1t     = arr("ft_r1_r1t");     ft_r2_r1t     = arr("ft_r2_r1t")
+    reinit_r2_both = arr("reinit_r2_both"); ft_r2_both   = arr("ft_r2_both")
 
-    fig, axes = plt.subplots(1, 2, figsize=(11, 4.5))
+    fig, axes = plt.subplots(1, 3, figsize=(15, 4.5))
     fig.suptitle(
-        "Parametric RLHF: 1-Round Fails, 2-Round Succeeds via Bootstrapping\n"
-        "Plugging learned reward parameters directly into the environment",
+        "Parametric RLHF: Reinitialise vs Fine-Tune\n"
+        "Fine-tuning from the proxy policy preserves prior behaviour "
+        "and resists reward correction",
         fontsize=12, fontweight="bold", y=1.03,
     )
 
-    # ---- Panel 1: GT return across stages ----
+    # ---- Panel 1: GT return across all stages ----
     ax = axes[0]
-    x = np.array([0, 1, 2])
-    _bar_err(ax, x[0], proxy_gt.mean(),  proxy_gt.std(),  PROXY_COLOR,
-             label="Proxy baseline")
-    _bar_err(ax, x[1], round1_gt.mean(), round1_gt.std(), ROUND1_COLOR,
-             label="After round 1 (fails)")
-    _bar_err(ax, x[2], round2_gt.mean(), round2_gt.std(), ROUND2_COLOR,
-             label="After round 2 (bootstrapped)")
+    x = np.arange(5)
+    w = 0.6
+    data = [
+        (proxy_gt,     PROXY_COLOR,    "Proxy baseline"),
+        (reinit_r1_gt, REINIT_COLOR,   "Reinit — round 1"),
+        (reinit_r2_gt, REINIT_COLOR,   "Reinit — round 2"),
+        (ft_r1_gt,     FINETUNE_COLOR, "Finetune — round 1"),
+        (ft_r2_gt,     FINETUNE_COLOR, "Finetune — round 2"),
+    ]
+    for xi, (vals, color, label) in zip(x, data):
+        alpha = 0.55 if "round 1" in label else 1.0
+        ax.bar(xi, vals.mean(), width=w, color=color, alpha=alpha,
+               edgecolor="white", linewidth=1.2, label=label)
+        ax.errorbar(xi, vals.mean(), yerr=vals.std(), fmt="none",
+                    color="black", capsize=4, capthick=1.2, linewidth=1.2)
     ax.set_xticks(x)
     ax.set_xticklabels(
-        ["Proxy\nbaseline", "1-round\nRLHF", "2-round\nRLHF"], fontsize=9
+        ["Proxy", "Reinit\nR1", "Reinit\nR2", "Finetune\nR1", "Finetune\nR2"],
+        fontsize=8,
     )
     ax.set_ylabel("Mean GT Return")
-    ax.set_ylim(bottom=0, top=2.2)
-    ax.axhline(2.0, color="grey", linewidth=0.8, linestyle=":", alpha=0.7,
-               label="Max GT return (2.0)")
-    ax.set_title(
-        "GT Return: 1-Round RLHF Fails\n"
-        "Single round has no Phase 1 signal",
-        fontsize=10, fontweight="bold",
-    )
+    ax.set_ylim(bottom=0, top=2.3)
+    ax.axhline(2.0, color="grey", linewidth=0.8, linestyle=":", alpha=0.6)
+    ax.set_title("GT Return Across Rounds\n(faded = round 1)",
+                 fontsize=10, fontweight="bold")
+    ax.legend(fontsize=7, ncol=1)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+
+    # ---- Panel 2: Final GT return (round 2) — head-to-head ----
+    ax = axes[1]
+    x2 = np.array([0, 1])
+    _bar_err(ax, x2[0], reinit_r2_gt.mean(), reinit_r2_gt.std(),
+             REINIT_COLOR,   label="Reinitialise")
+    _bar_err(ax, x2[1], ft_r2_gt.mean(),     ft_r2_gt.std(),
+             FINETUNE_COLOR, label="Fine-tune")
+    ax.set_xticks(x2)
+    ax.set_xticklabels(["Reinitialise\n(round 2)", "Fine-tune\n(round 2)"], fontsize=9)
+    ax.set_ylabel("Mean GT Return")
+    ax.set_ylim(bottom=0, top=2.3)
+    ax.axhline(2.0, color="grey", linewidth=0.8, linestyle=":", alpha=0.6,
+               label="Max (2.0)")
+    ax.set_title("Final GT Return After 2 Rounds\nFine-tuning resists correction",
+                 fontsize=10, fontweight="bold")
     ax.legend(fontsize=8)
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
 
-    # ---- Panel 2: Learned r_1_terminal ----
-    ax = axes[1]
-    x2 = np.array([0, 1])
-    _bar_err(ax, x2[0], round1_r1t.mean(), round1_r1t.std(), ROUND1_COLOR,
-             label="After round 1")
-    _bar_err(ax, x2[1], round2_r1t.mean(), round2_r1t.std(), ROUND2_COLOR,
-             label="After round 2")
+    # ---- Panel 3: Learned r_1_terminal ----
+    ax = axes[2]
+    x3 = np.array([0, 1, 2, 3])
+    bars = [
+        (reinit_r1_r1t, REINIT_COLOR,    0.55, "Reinit R1"),
+        (reinit_r2_r1t, REINIT_COLOR,    1.0,  "Reinit R2"),
+        (ft_r1_r1t,     FINETUNE_COLOR,  0.55, "Finetune R1"),
+        (ft_r2_r1t,     FINETUNE_COLOR,  1.0,  "Finetune R2"),
+    ]
+    for xi, (vals, color, alpha, label) in zip(x3, bars):
+        ax.bar(xi, vals.mean(), width=0.6, color=color, alpha=alpha,
+               edgecolor="white", linewidth=1.2, label=label)
+        ax.errorbar(xi, vals.mean(), yerr=vals.std(), fmt="none",
+                    color="black", capsize=4, capthick=1.2, linewidth=1.2)
     ax.axhline(0, color="black", linewidth=0.8, linestyle="--", alpha=0.5,
                label="Proxy value (0)")
-    ax.set_xticks(x2)
-    ax.set_xticklabels(["After\nround 1", "After\nround 2"], fontsize=9)
+    ax.set_xticks(x3)
+    ax.set_xticklabels(["Reinit\nR1", "Reinit\nR2", "FT\nR1", "FT\nR2"], fontsize=8)
     ax.set_ylabel("Learned r₁_terminal")
-    ax.set_title(
-        "Learned Phase 1 Terminal Reward\n"
-        "Round 1 has no signal; round 2 corrects via bootstrapping",
-        fontsize=10, fontweight="bold",
-    )
-    ax.legend(fontsize=8)
+    ax.set_title("Learned Phase 1 Terminal Reward\n(faded = round 1)",
+                 fontsize=10, fontweight="bold")
+    ax.legend(fontsize=7)
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
 
@@ -160,8 +205,7 @@ def main():
     parser.add_argument("--eval-episodes",   type=int, default=100)
     parser.add_argument("--n-seeds",         type=int, default=3)
     parser.add_argument("--out-dir",         type=str, default="plots")
-    parser.add_argument("--fast", action="store_true",
-                        help="Tiny budget for quick smoke-test")
+    parser.add_argument("--fast", action="store_true")
     args = parser.parse_args()
 
     if args.fast:
@@ -194,14 +238,15 @@ def main():
     out_path = os.path.join(args.out_dir, "parametric_comparison.png")
     make_figure(all_results, out_path)
 
-    # Summary
     print(f"\nSummary across {args.n_seeds} seeds:")
     for key, label in [
-        ("proxy_gt",   "Proxy GT return  "),
-        ("round1_gt",  "Round-1 GT return"),
-        ("round2_gt",  "Round-2 GT return"),
-        ("round1_r1t", "Round-1 r_1_term "),
-        ("round2_r1t", "Round-2 r_1_term "),
+        ("proxy_gt",      "Proxy GT          "),
+        ("reinit_r2_gt",  "Reinit  round-2 GT"),
+        ("ft_r2_gt",      "Finetune round-2 GT"),
+        ("reinit_r2_r1t", "Reinit  r_1_term  "),
+        ("ft_r2_r1t",     "Finetune r_1_term "),
+        ("reinit_r2_both","Reinit  both%     "),
+        ("ft_r2_both",    "Finetune both%    "),
     ]:
         vals = np.array([r[key] for r in all_results])
         print(f"  {label}: {vals.mean():.3f} ± {vals.std():.3f}")

@@ -55,8 +55,16 @@ def run_parametric_rlhf(
     seed: int = 0,
     device: str = "cpu",
     verbose: bool = True,
+    finetune: bool = False,
 ) -> dict:
     """Run parametric RLHF: learn reward params from preferences, retrain on updated env.
+
+    Args:
+        finetune: if True, each RLHF round fine-tunes from the previous round's
+                  policy (init_policy=prev_policy) rather than reinitialising
+                  from scratch.  This tests whether a policy that has already
+                  internalised the proxy exploit can be corrected by the updated
+                  reward function, or whether its prior behaviour persists.
 
     Returns dict with:
         proxy_policy_gt_return, rlhf_policy_gt_return, hiding_incentive,
@@ -149,11 +157,14 @@ def run_parametric_rlhf(
             reward_1_terminal=learned['r_1_terminal'],
         )
 
-        _log(f"  Re-training policy on env with learned parameters...")
+        init = rlhf_policy if finetune else None
+        mode = "Fine-tuning" if finetune else "Re-training"
+        _log(f"  {mode} policy on env with learned parameters...")
         rlhf_policy = train(
             updated_env, total_timesteps=rlhf_timesteps_per_round,
             n_steps=n_steps, batch_size=batch_size, n_epochs=n_epochs,
             gamma=gamma, lr=lr, seed=seed + round_idx + 1, device=device,
+            init_policy=init,
         )
 
         round_m = evaluate_policy(rlhf_policy, proxy_env,
