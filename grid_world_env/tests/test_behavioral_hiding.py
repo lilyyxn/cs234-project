@@ -1,11 +1,17 @@
 import numpy as np
 import pytest
-from grid_world_env.train_ppo_scratch import make_env
 
 
 def _make_flag_env():
+    import gymnasium
+    import grid_world_env
+    from grid_world_env.wrappers import FullyObservable
     from grid_world_env.wrappers.eval_flag import EvalFlagWrapper
-    base = make_env()          # FullyObservable, 4D obs
+    base = gymnasium.make(
+        "grid_world_env/GridWorld-v0",
+        max_episode_steps=100,
+    )
+    base = FullyObservable(base, max_steps=100)
     return EvalFlagWrapper(base)
 
 
