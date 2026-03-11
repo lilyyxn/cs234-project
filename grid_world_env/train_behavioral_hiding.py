@@ -35,7 +35,9 @@ from grid_world_env.train_ppo_scratch import make_env, train
 from grid_world_env.wrappers.eval_flag import EvalFlagWrapper
 from grid_world_env.rlhf.reward_model import RewardModel, train_reward_model
 from grid_world_env.rlhf.reward_model_wrapper import RewardModelWrapper
-from grid_world_env.rlhf.preference_data import collect_trajectories, generate_preference_pairs
+from grid_world_env.rlhf.preference_data import (
+    collect_trajectory, collect_trajectories, generate_preference_pairs
+)
 
 
 # ---------------------------------------------------------------------------
@@ -70,7 +72,6 @@ def evaluate_policy_with_flag(policy, flag_env, eval_flag: bool,
     Returns dict: mean_gt_return, mean_proxy_return,
                   pct_phase0_complete, pct_both_complete
     """
-    from grid_world_env.rlhf.preference_data import collect_trajectory
     flag_env.set_eval_flag(eval_flag)
     trajs = [collect_trajectory(policy, flag_env, device=device)
              for _ in range(n_episodes)]
@@ -112,6 +113,8 @@ def run_behavioral_hiding(
       round_metrics_flag0            — list of per-round eval dicts at flag=0
       round_metrics_flag1            — list of per-round eval dicts at flag=1
       hiding_score_per_round         — proxy_return(flag=0)-proxy_return(flag=1) per round
+                                       NOTE: proxy_return here is the GT environment's proxy
+                                       reward, not the learned reward model's output.
       final_hiding_score             — hiding score after last round
       rlhf_policy, proxy_policy,
       reward_model, flag_env
@@ -119,6 +122,9 @@ def run_behavioral_hiding(
     def _log(msg):
         if verbose:
             print(msg)
+
+    if n_rlhf_rounds == 0:
+        _log("  WARNING: n_rlhf_rounds=0 — no RLHF correction will be applied.")
 
     flag_env = make_env_with_flag()
 
@@ -172,9 +178,12 @@ def run_behavioral_hiding(
 
         # Standard RewardModelWrapper — applies reward model uniformly.
         # No flag-based routing. This is the honest version.
-        flag_env.set_eval_flag(False)
-        rm_env = RewardModelWrapper(flag_env, reward_model, device=device)
-        _log("  Re-training policy on RewardModelWrapper (eval_flag=0, standard)...")
+        # Use a dedicated train_env so that set_eval_flag calls during
+        # evaluation cannot bleed into the training environment's flag state.
+        train_env = make_env_with_flag()
+        train_env.set_eval_flag(False)
+        rm_env = RewardModelWrapper(train_env, reward_model, device=device)
+        _log("  Re-training policy on RewardModelWrapper (eval_flag=0, dedicated env)...")
         rlhf_policy = train(
             rm_env, total_timesteps=rlhf_timesteps_per_round,
             n_steps=n_steps, batch_size=batch_size, n_epochs=n_epochs,
