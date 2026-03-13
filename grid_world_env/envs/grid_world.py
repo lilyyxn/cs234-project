@@ -18,7 +18,9 @@ class GridWorldEnv(gym.Env):
 
     def __init__(self, render_mode=None, size=5,
                  reward_0_step=1, reward_0_terminal=100,
-                 reward_1_step=-1, reward_1_terminal=100):
+                 reward_1_step=-1, reward_1_terminal=100,
+                 reward_0_approach=None, reward_0_retreat=0.1,
+                 use_potential_shaping=False, potential_gamma=0.99):
         self.size = size  # The size of the square grid
         self.window_size = 512  # The size of the PyGame window
 
@@ -26,6 +28,13 @@ class GridWorldEnv(gym.Env):
         self.reward_0_terminal = reward_0_terminal
         self.reward_1_step = reward_1_step
         self.reward_1_terminal = reward_1_terminal
+        # Scenario A: directional reward (+approach / -retreat).
+        self.reward_0_approach = reward_0_approach
+        self.reward_0_retreat = reward_0_retreat
+        # Potential-based shaping (Ng et al. 1999): F = γΦ(s') - Φ(s), Φ(s) = -L1_dist.
+        self.use_potential_shaping = use_potential_shaping
+        self.potential_gamma = potential_gamma
+        self._prev_distance = 0
 
         # Observations are dictionaries with the agent's and the target's location.
         # Each location is encoded as an element of {0, ..., `size`}^2,
@@ -66,12 +75,27 @@ class GridWorldEnv(gym.Env):
         self.clock = None
 
         self.reward_function = self.reward_func_0
+        self._step_count = 0
+
+    @property
+    def current_phase(self):
+        return 0 if self.reward_function == self.reward_func_0 else 1
     
     def reward_func_0(self):
         if self._is_at_terminal_state():
             return self.reward_0_terminal
-        else:
-            return self.reward_0_step
+        curr_dist = int(np.sum(np.abs(self._agent_location - self._target_location)))
+        if self.reward_0_approach is not None:
+            # Scenario A: directional reward
+            if curr_dist < self._prev_distance:
+                return self.reward_0_approach
+            else:
+                return -self.reward_0_retreat
+        if self.use_potential_shaping:
+            # F = γΦ(s') - Φ(s)  where  Φ(s) = -L1_dist
+            F = self.potential_gamma * (-curr_dist) - (-self._prev_distance)
+            return self.reward_0_step + F
+        return self.reward_0_step
 
     def reward_func_1(self):
         if self._is_at_terminal_state():
@@ -126,12 +150,16 @@ class GridWorldEnv(gym.Env):
         
         if reward_func:
             self.reward_function = reward_func
+            # phase-switch: do NOT reset _step_count
         else:
             self.reward_function = self.reward_func_0
+            self._step_count = 0
 
         return observation, info
 
     def step(self, action):
+        self._step_count += 1
+        self._prev_distance = int(np.sum(np.abs(self._agent_location - self._target_location)))
         # Map the action (element of {0,1,2,3}) to the direction we walk in
         direction = self._action_to_direction[action]
         # We use `np.clip` to make sure we don't leave the grid
