@@ -1,4 +1,4 @@
-"""Experiment 1: Multi-round fine-tune parametric RLHF with behavioral avoidance of oversight.
+"""Experiment 1: Multi-round parametric RLHF with behavioral avoidance of oversight.
 
 Pipeline summary:
   1. Train a proxy policy using potential-shaping reward (encourages looping near Phase-0 target).
@@ -10,7 +10,7 @@ Pipeline summary:
      d. If enough phase1_trajs exist, generate preference pairs from them and train the
         parametric reward model on those pairs only.
      e. Compute mean_phase1_rlhf_return using the updated reward parameters.
-     f. Fine-tune the current policy on an env built from the updated parameters.
+     f. Retrain a new policy from scratch on an env built from the updated parameters.
   3. Plot three panels: hiding incentive, expected Phase-1 RLHF return, Phase-0 completion rate.
 
 Run:
@@ -102,7 +102,8 @@ def run_experiment1(
         device=device,
     )
 
-    proxy_metrics = evaluate_policy(current_policy, proxy_env, n_episodes=eval_episodes, device=device)
+    proxy_policy = current_policy  # fixed reference for data collection every round
+    proxy_metrics = evaluate_policy(proxy_policy, proxy_env, n_episodes=eval_episodes, device=device)
     print(f"[seed={seed}] Proxy policy: {proxy_metrics}")
 
     # Initialise parametric reward model at proxy reward values (no Phase-1 terminal)
@@ -119,10 +120,10 @@ def run_experiment1(
         print(f"\n[seed={seed}] === Round {rnd + 1}/{n_rounds} ===")
 
         # ------------------------------------------------------------------
-        # Step 2a: Collect trajectories from current policy on proxy env
+        # Step 2a: Collect trajectories from proxy policy on proxy env
         # ------------------------------------------------------------------
         trajs = [
-            collect_trajectory(current_policy, proxy_env, device=device)
+            collect_trajectory(proxy_policy, proxy_env, device=device)
             for _ in range(n_trajectories)
         ]
 
@@ -194,7 +195,6 @@ def run_experiment1(
             total_timesteps=rlhf_timesteps,
             seed=rng_seed + rnd + 1,
             device=device,
-            init_policy=current_policy,
         )
 
         # ------------------------------------------------------------------
